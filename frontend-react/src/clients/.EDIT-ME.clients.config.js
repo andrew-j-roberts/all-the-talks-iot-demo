@@ -1,0 +1,9 @@
+export const env = {
+  ARDUINO_CHIP_ID: 123,
+  MQTT_HOST_URL: "",
+  MQTT_USERNAME: "",
+  MQTT_PASSWORD: "",
+  SEMP_ENDPOINT: "",
+  SEMP_USERNAME: "",
+  SEMP_PASSWORD: ""
+};

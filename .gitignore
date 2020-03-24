@@ -1,0 +1,6 @@
+.cache
+dist
+node_modules
+.env
+clients.config.js
+.DS_Store
