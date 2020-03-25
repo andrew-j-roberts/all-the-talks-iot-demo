@@ -3,24 +3,25 @@
  * @author Andrew Roberts
  */
 
- 
 import * as Events from "./events";
 
-export const handleProximityReadingEvent = callback => async event => {
+export const handleProximityReadingEvent = updateStateMachine => async event => {
   // guard: attempt to parse event, fail if event is malformed
   let proximityReadingEvent;
   try {
-    let eventObj = JSON.parse(event);
+    let eventObj = JSON.parse(event.message);
     proximityReadingEvent = Events.ProximityReadingEvent({
-      inches: eventObj.inches,
-      centimeters: eventObj.centimeters
+      sensorId: eventObj.sensorId,
+      centimeters: eventObj.centimeters,
+      inches: eventObj.inches
     });
   } catch (e) {
     console.error(e);
     return false;
   }
 
-  // trigger callback that will update state
+  // send event and context to state machine
+  updateStateMachine("PROXIMITY_READING_RECEIVED", proximityReadingEvent);
 
   return true;
 };

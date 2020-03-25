@@ -3,38 +3,38 @@
  * @author Andrew Roberts
  */
 
-import { Machine, assign } from "xstate";
+import produce from "immer";
+import { Machine, assign, interpret } from "xstate";
 import * as Events from "./events";
 
-export function createProximityReadingProcessor({ publish }) {
+export function createProximityReadingProcessor({
+  publish,
+  proximitySensorMaxRangeCm,
+  proximitySensorThreshold,
+  chartTimeIntervalSec
+}) {
   /**
    * guards
    */
 
   function objectDetected(context, event) {
     let distanceThreshold =
-      process.env.PROXIMITY_SENSOR_MAX_RANGE_CM -
-      process.env.PROXIMITY_SENSOR_THRESHOLD;
-
+      proximitySensorMaxRangeCm - proximitySensorThreshold;
     // object detected
-    if (context.centimeters < distanceThreshold) {
+    if (event.centimeters < distanceThreshold) {
       return true;
     }
-
     // no object detected
     return false;
   }
 
   function objectCleared(context, event) {
     let distanceThreshold =
-      process.env.PROXIMITY_SENSOR_MAX_RANGE_CM -
-      process.env.PROXIMITY_SENSOR_THRESHOLD;
-
+      proximitySensorMaxRangeCm - proximitySensorThreshold;
     // no object detected
-    if (context.centimeters > distanceThreshold) {
+    if (event.centimeters > distanceThreshold) {
       return true;
     }
-
     // object detected
     return false;
   }
@@ -43,20 +43,46 @@ export function createProximityReadingProcessor({ publish }) {
    * actions
    */
 
-  const incrementObjectDetectedCount = assign({
-    objectDetectedCount: (context, event) => context.objectDetectedCount + 1
+  const incrementObjectDetectedCount = assign((context, event) => {
+    // if the sensor has an active count, increment
+    if (context.objectDetectedCount[event.sensorId]) {
+      return {
+        objectDetectedCount: {
+          ...produce(context.objectDetectedCount, draft => {
+            draft[event.sensorId] = draft[event.sensorId] + 1;
+          })
+        }
+      };
+    }
+    // else initialize the sensor's count to 1
+    return {
+      objectDetectedCount: {
+        ...produce(context.objectDetectedCount, draft => {
+          draft[event.sensorId] = 1;
+        })
+      }
+    };
   });
 
-  const resetObjectDetectedCount = assign({
-    objectDetectedCount: 0
+  const resetObjectDetectedCount = assign((context, event) => {
+    return {
+      objectDetectedCount: {
+        ...produce(context.objectDetectedCount, draft => {
+          for (let key of Object.keys(draft)) {
+            draft[key] = 0;
+          }
+        })
+      }
+    };
   });
 
-  function publishChartDatum(objectDetectedCount) {
-    let chartDatumEvent = Events.ChartDatumEvent(
+  function publishChartDatum({ objectDetectedCount, sensorId }) {
+    let chartDatumEvent = Events.ChartDatumEvent({
+      sensorId,
       objectDetectedCount,
-      Date.now()
-    );
-    publish(chartDatumEvent);
+      timestamp: Date.now()
+    });
+    publish(`ProximitySensor/${sensorId}/Chart/Data`, chartDatumEvent);
   }
 
   /**
@@ -68,7 +94,7 @@ export function createProximityReadingProcessor({ publish }) {
       id: "proximityReadingProcessorMachine",
       initial: "idle",
       context: {
-        objectDetectedCount: 0
+        objectDetectedCount: {}
       },
       states: {
         idle: {
@@ -78,6 +104,7 @@ export function createProximityReadingProcessor({ publish }) {
         },
         listening: {
           initial: "baseline",
+          activities: ["createProcessingActivity"],
           states: {
             baseline: {
               on: {
@@ -131,7 +158,13 @@ export function createProximityReadingProcessor({ publish }) {
 
   const service = interpret(proximityReadingProcessorMachine).onTransition(
     state => {
-      console.log(state.value);
+      console.log(
+        "Service: { state: ",
+        state.value,
+        ", context: ",
+        state.context,
+        "}"
+      );
     }
   );
   service.start();
@@ -142,9 +175,15 @@ export function createProximityReadingProcessor({ publish }) {
 
   function createProcessingActivity(context, activity) {
     let interval = setInterval(() => {
-      publishChartDatum(context.objectDetectedCount);
+      let currentContext = service.state.context;
+      for (let key of Object.keys(currentContext.objectDetectedCount)) {
+        publishChartDatum({
+          sensorId: key,
+          objectDetectedCount: currentContext.objectDetectedCount[key]
+        });
+      }
       service.send("CHART_DATUM_SENT");
-    }, process.env.DASHBOARD_CHART_TIME_INTERVAL_SEC);
+    }, chartTimeIntervalSec * 1000);
 
     return () => clearInterval(interval);
   }

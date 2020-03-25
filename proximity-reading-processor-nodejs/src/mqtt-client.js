@@ -6,7 +6,7 @@
 import mqtt from "mqtt";
 import produce from "immer";
 
-function MqttClient({ hostUrl, username, password }) {
+export function MqttClient({ hostUrl, username, password }) {
   let client = null;
   let eventHandlers = produce({}, draft => {});
 
@@ -32,10 +32,8 @@ function MqttClient({ hostUrl, username, password }) {
               .substring(0, regexdSub.length - 1)
               .concat(".*");
           }
-          console.log(matchRegex);
           let matchRegex = new RegExp(regexdSub);
           let matched = topic.match(matchRegex);
-          console.log(matched);
 
           //if the matched index starts at 0, then the topic is a match with the topic filter
           if (matched && matched.index == 0) {
@@ -148,5 +146,3 @@ function MqttClient({ hostUrl, username, password }) {
     draft.removeEventHandler = removeEventHandler;
   });
 }
-
-export default MqttClient;

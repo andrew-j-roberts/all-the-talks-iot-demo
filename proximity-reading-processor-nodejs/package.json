@@ -21,6 +21,7 @@
     "core-js": "^3.6.4",
     "dotenv": "^8.2.0",
     "immer": "^5.3.6",
+    "mqtt": "^3.0.0",
     "regenerator-runtime": "^0.13.3",
     "xstate": "^4.8.0"
   }

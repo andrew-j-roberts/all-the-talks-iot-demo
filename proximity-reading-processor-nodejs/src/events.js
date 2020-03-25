@@ -4,15 +4,17 @@
  */
 import produce from "immer";
 
-export function ProximityReadingEvent({ centimeters, inches }) {
+export function ProximityReadingEvent({ sensorId, centimeters, inches }) {
   return produce({}, draft => {
+    draft.sensorId = sensorId;
     draft.centimeters = centimeters;
     draft.inches = inches;
   });
 }
 
-export function ChartDatumEvent({ objectDetectedCount, timestamp }) {
+export function ChartDatumEvent({ sensorId, objectDetectedCount, timestamp }) {
   return produce({}, draft => {
+    draft.sensorId = sensorId;
     draft.objectDetectedCount = objectDetectedCount;
     draft.timestamp = timestamp;
   });
