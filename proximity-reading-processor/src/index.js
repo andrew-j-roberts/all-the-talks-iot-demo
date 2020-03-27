@@ -18,7 +18,7 @@ import * as EventHandlers from "./event-handlers";
 import { createProximityReadingProcessor } from "./proximity-reading-processor";
 
 async function run() {
-  // configure mqtt connection options using env variables
+  // configure mqtt connection options
   let mqttClientConfig = {
     hostUrl: process.env.SOLACE_MQTT_HOST_URL,
     username: process.env.SOLACE_USERNAME,
@@ -34,7 +34,7 @@ async function run() {
     console.error(err);
   }
 
-  // configure and start state machine using mqtt client and env variables
+  // start state machine
   const proximitySensorReadingProcessor = createProximityReadingProcessor({
     publish: mqttClient.send,
     proximitySensorMaxRangeCm: process.env.PROXIMITY_SENSOR_MAX_RANGE_CM,
