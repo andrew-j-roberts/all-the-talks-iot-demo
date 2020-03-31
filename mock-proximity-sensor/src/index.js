@@ -17,11 +17,14 @@ import { MqttClient } from "./mqtt-client";
 import * as Events from "./events";
 
 async function run() {
+  let randomSensorId = Math.floor(Math.random() * 10000);
+
   // configure mqtt connection options
   let mqttClientConfig = {
     hostUrl: process.env.SOLACE_MQTT_HOST_URL,
     username: process.env.SOLACE_USERNAME,
-    password: process.env.SOLACE_PASSWORD
+    password: process.env.SOLACE_PASSWORD,
+    clientId: randomSensorId
   };
 
   // initialize and connect mqtt client
@@ -40,12 +43,15 @@ async function run() {
       Math.random() * process.env.PROXIMITY_SENSOR_MAX_RANGE_CM
     );
     let proximityReadingEvent = Events.ProximityReadingEvent({
-      sensorId: "DEMO",
+      id: `${process.env.SOLACE_USERNAME}-${randomSensorId}`,
       centimeters: randomCmReading,
       inches: randomCmReading * 0.3937
     });
     // publish proximity reading event on topic that includes the sensor id
-    mqttClient.send("ProximitySensor/DEMO/Reading", proximityReadingEvent);
+    mqttClient.send(
+      `ProximitySensor/${process.env.SOLACE_USERNAME}-${randomSensorId}/Chart/Data`,
+      proximityReadingEvent
+    );
   }, Math.floor((process.env.PROXIMITY_SENSOR_RATE_PER_SEC / 1000) * 1000));
 
   // run until sigint

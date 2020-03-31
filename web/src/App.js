@@ -4,12 +4,17 @@ import { useImmer } from "use-immer";
 import { FixedSizeList as List } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
 // clients
-import { env } from "./clients/clients.config";
-import MqttClient from "./clients/MqttClient";
-import { fetchConnectedClients } from "./clients/SempClient";
+import { clientConfig } from "./clients/clients.config";
+import { MqttClient } from "./clients/mqtt-client";
+import { fetchConnectedClients } from "./clients/semp-client";
+// pages
+import { DeviceDetailPage } from "./pages/DeviceDetailPage";
 // img
 import PngProximitySensor from "../img/proximity-sensor.png";
 import SvgSolaceLogoGreen from "../img/SvgSolaceLogoGreen";
+import SvgNodeJs from "../img/SvgNodeJs";
+
+// ProximitySensor/${sensorId}/Chart/Data
 
 function App() {
   /**
@@ -21,9 +26,8 @@ function App() {
    * app state
    */
   const [state, updateState] = useImmer({
-    currentDevice: null,
-    deviceList: [],
-    disconnectEventLog: []
+    selectedDevice: null,
+    connectedDeviceList: []
   });
 
   /**
@@ -32,30 +36,16 @@ function App() {
   function filterConnectedClients(clientArray) {
     // filter on interested client username
     function checkClientUsername(client) {
-      if (client.clientUsername == "solly-mobile") {
+      if (client.clientUsername == "mock-proximity-sensor") {
         return true;
       }
 
       if (client.clientUsername == "proximity-sensor") {
         return true;
       }
-
-      if (client.clientUsername == "mgmt-dashboard") {
-        return true;
-      }
     }
 
     return clientArray.filter(checkClientUsername);
-  }
-
-  function handleDisconnectEvent({ timestamp, clientUsername, clientId }) {
-    updateState(draft => {
-      draft.disconnectEventLog.unshift({
-        timestamp,
-        clientUsername,
-        clientId
-      });
-    });
   }
 
   /**
@@ -70,8 +60,9 @@ function App() {
       let filteredDevices;
       try {
         let res = await fetchConnectedClients({
-          msgVpnName: "solace-battleship-udemy"
+          msgVpnName: clientConfig.SEMP_MESSAGE_VPN
         });
+        console.dir(res);
         clientArray = res["data"];
         filteredDevices = filterConnectedClients(clientArray);
       } catch (e) {
@@ -80,7 +71,7 @@ function App() {
       }
 
       updateState(draft => {
-        draft.deviceList = filteredDevices;
+        draft.connectedDeviceList = filteredDevices;
       });
 
       /**
@@ -89,9 +80,9 @@ function App() {
 
       // configure mqtt connection options
       let mqttClientConfig = {
-        hostUrl: env.MQTT_HOST_URL,
-        username: env.MQTT_USERNAME,
-        password: env.MQTT_PASSWORD
+        hostUrl: clientConfig.MQTT_HOST_URL,
+        username: clientConfig.MQTT_USERNAME,
+        password: clientConfig.MQTT_PASSWORD
       };
 
       // initialize and connect mqtt client
@@ -105,26 +96,6 @@ function App() {
       }
       console.log("=== MqttClient ready to use. === ");
 
-      // add event handler for client disconnect event
-      try {
-        await mqttClient.addEventHandler(
-          // https://docs.solace.com/System-and-Software-Maintenance/Subscribing-to-MBus-Events.htm#subscribing_to_message_bus_events_1651767527_308172
-          // SYS/LOG/INFO/CLIENT/<router-name>/<eventName>/<vpnName>/<clientName>
-          "$SYS/LOG/INFO/CLIENT/+/CLIENT_CLIENT_DISCONNECT_MQTT/#",
-          // define callback that is triggered when messages are received on specified topic
-          function parseClientDisconnectSyslog({ topic, message }) {
-            let tokenizedEvent = message.toString().split(" ");
-            let timestamp = tokenizedEvent[0];
-            let clientUsername = tokenizedEvent[11];
-            let clientId = tokenizedEvent[8];
-            handleDisconnectEvent({ timestamp, clientUsername, clientId });
-          },
-          1 // qos
-        );
-      } catch (err) {
-        console.error(err);
-      }
-
       setMqttClient(mqttClient);
     }
 
@@ -136,7 +107,7 @@ function App() {
    */
   useInterval(async () => {
     let res = await fetchConnectedClients({
-      msgVpnName: "solace-battleship-udemy"
+      msgVpnName: clientConfig.SEMP_MESSAGE_VPN
     });
 
     let clientArray;
@@ -152,7 +123,7 @@ function App() {
     }
 
     updateState(draft => {
-      draft.deviceList = filteredDevices;
+      draft.connectedDeviceList = filteredDevices;
     });
   }, 5000);
 
@@ -161,32 +132,30 @@ function App() {
    */
   return (
     <div className="grid w-screen h-screen grid-cols-10 pb-6">
+      {/* sidebar */}
       <div className="col-span-2">
         <div className="flex flex-col items-center p-4">
-          <SvgHoneywellLogo width="100px" />
-          <div className="flex justify-center text-2xl">+</div>
           <SvgSolaceLogoGreen width="100px" />
         </div>
-        <img src={PngDemoArchitecture} />
       </div>
-
-      <div className="flex flex-col col-span-8 overflow-scroll">
-        {state.currentDevice ? (
+      {/* content */}
+      <div className="flex flex-col col-span-8">
+        {state.selectedDevice ? (
           // if user selects a device, show the device detail page
           <div className="col-span-8">
             <DeviceDetailPage
-              device={state.currentDevice}
+              device={state.selectedDevice}
               mqttClient={mqttClient}
-              updateState={updateState}
+              updateParentState={updateState}
             />
           </div>
         ) : (
           // else, render home page
           <React.Fragment>
             <div className="flex items-center h-16 px-4 text-xl border-b-2">
-              Management Console
+              🏭 Widget Factory Command Center
             </div>
-            <div className="flex flex-col px-4 overflow-scroll">
+            <div className="flex flex-col px-4">
               <div className="grid grid-cols-10">
                 <div className="flex flex-col col-start-2 col-end-10">
                   <div className="mt-6">
@@ -204,41 +173,15 @@ function App() {
                             <List
                               className="List"
                               height={height}
-                              itemCount={state.deviceList.length}
+                              itemCount={state.connectedDeviceList.length}
                               itemData={{
-                                list: state.deviceList,
+                                list: state.connectedDeviceList,
                                 updateState: updateState
                               }}
                               itemSize={100}
                               width={width}
                             >
                               {DeviceRow}
-                            </List>
-                          )}
-                        </AutoSizer>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <h2 className="text-2xl">Client Disconnect Event Log</h2>
-                    <div className="w-full p-4 mt-2 border rounded-sm">
-                      <div className="grid grid-cols-3 mb-4">
-                        <div className="font-bold">Time</div>
-                        <div className="font-bold">Client Username</div>
-                        <div className="font-bold">Client ID</div>
-                      </div>
-                      <div style={{ height: "300px" }}>
-                        <AutoSizer>
-                          {({ height, width }) => (
-                            <List
-                              className="List"
-                              height={height}
-                              itemCount={state.disconnectEventLog.length}
-                              itemData={state.disconnectEventLog}
-                              itemSize={60}
-                              width={width}
-                            >
-                              {EventLogRow}
                             </List>
                           )}
                         </AutoSizer>
@@ -256,15 +199,13 @@ function App() {
 }
 
 /**
- * templates
+ * component templates
  */
 function DeviceRow({ index, data, style }) {
   // destructure data provided by list
   let { list, updateState } = data;
   // get item using index
   let item = list[index];
-  // set device type based on the client username, default to tof-sensor
-  let deviceType = item.clientUsername;
 
   function secondsToHHMMSS(seconds) {
     let measuredTime = new Date(null);
@@ -278,27 +219,24 @@ function DeviceRow({ index, data, style }) {
         className="w-full"
         onClick={() =>
           updateState(draft => {
-            draft.currentDevice = { type: deviceType, device: item };
+            draft.selectedDevice = item;
           })
         }
       >
         <div className="grid items-center grid-cols-4">
           <div className="flex">
-            <img
-              src={
-                deviceType === "solly-mobile"
-                  ? PngMqttCar
-                  : deviceType === "proximity-sensor"
-                  ? PngProximitySensor
-                  : PngMgmtDashboard
-              }
-              width={"80px"}
-            />
+            {item.clientUsername === "proximity-sensor" ? (
+              <img src={PngProximitySensor} width="80px" />
+            ) : item.clientUsername === "mock-proximity-sensor" ? (
+              <SvgNodeJs width="80px" />
+            ) : null}
           </div>
           <div className="flex text-xl text-gray-800">
             {item.clientUsername}
           </div>
-          <div className="flex text-gray-800 text-md">{item.clientId}</div>
+          <div className="flex text-gray-800 text-md">
+            {getMqttId({ clientName: item.clientName })}
+          </div>
           <div className="flex">{secondsToHHMMSS(item.uptime)}</div>
         </div>
       </button>
@@ -306,24 +244,8 @@ function DeviceRow({ index, data, style }) {
   );
 }
 
-function EventLogRow({ index, data, style }) {
-  let item = data[index];
-  return (
-    <div
-      style={style}
-      className={`${
-        index % 2 ? "bg-gray-200" : "bg-transparent"
-      } grid w-full grid-cols-3 px-2 py-4 text-lg text-gray-800`}
-    >
-      <div className="flex">{item.timestamp}</div>
-      <div className="flex">{item.clientUsername}</div>
-      <div className="flex">{item.clientId}</div>
-    </div>
-  );
-}
-
 /**
- * helpers
+ * utils
  */
 function useInterval(callback, delay) {
   const savedCallback = useRef();
@@ -343,6 +265,10 @@ function useInterval(callback, delay) {
       return () => clearInterval(id);
     }
   }, [delay]);
+}
+
+function getMqttId({ clientName }) {
+  return clientName.split("/")[1];
 }
 
 export default App;

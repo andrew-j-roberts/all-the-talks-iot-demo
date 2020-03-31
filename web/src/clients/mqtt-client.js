@@ -6,7 +6,7 @@
 import mqtt from "mqtt";
 import produce from "immer";
 
-function MqttClient({ hostUrl, username, password }) {
+export function MqttClient({ hostUrl, username, password }) {
   let client = null;
   let eventHandlers = produce({}, draft => {});
 
@@ -148,5 +148,3 @@ function MqttClient({ hostUrl, username, password }) {
     draft.removeEventHandler = removeEventHandler;
   });
 }
-
-export default MqttClient;

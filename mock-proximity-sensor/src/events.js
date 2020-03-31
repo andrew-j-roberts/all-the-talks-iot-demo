@@ -4,9 +4,9 @@
  */
 import produce from "immer";
 
-export function ProximityReadingEvent({ sensorId, centimeters, inches }) {
+export function ProximityReadingEvent({ id, centimeters, inches }) {
   return produce({}, draft => {
-    draft.sensorId = sensorId;
+    draft.id = id;
     draft.centimeters = centimeters;
     draft.inches = inches;
   });

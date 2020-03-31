@@ -11,7 +11,7 @@ export const handleProximityReadingEvent = updateStateMachine => async event => 
   try {
     let eventObj = JSON.parse(event.message);
     proximityReadingEvent = Events.ProximityReadingEvent({
-      sensorId: eventObj.sensorId,
+      id: eventObj.id,
       centimeters: eventObj.centimeters,
       inches: eventObj.inches
     });

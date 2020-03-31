@@ -6,17 +6,19 @@
 import mqtt from "mqtt";
 import produce from "immer";
 
-export function MqttClient({ hostUrl, username, password }) {
+export function MqttClient({ hostUrl, username, clientId, password }) {
   let client = null;
 
   // connect client to message broker,
   // configure client to dispatch events using the event handlers map,
   // and ensure a connack is received
   async function connect() {
+    console.log("mqtt client ", clientId);
     return new Promise((resolve, reject) => {
       client = mqtt.connect(hostUrl, {
         username: username,
-        password: password
+        password: password,
+        clientId: String(clientId)
       });
       client.on("connect", function onConnAck() {
         console.log("MqttClient connected to broker.");
