@@ -1,7 +1,6 @@
 import React, { useEffect } from "react";
 import moment from "moment";
 import { useImmer } from "use-immer";
-import * as SempClient from "../clients/semp-client";
 import { useTabState, Tab, TabList, TabPanel } from "reakit/Tab";
 import {
   CartesianGrid,
@@ -11,7 +10,7 @@ import {
   ScatterChart,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 import { FixedSizeList as List } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
@@ -53,7 +52,8 @@ function ProximitySensorDetailPage({ device, mqttClient, updateParentState }) {
    */
   const [state, updateState] = useImmer({
     actionLog: [],
-    chartData: []
+    chartData: [],
+    isPaused: false,
   });
 
   const tab = useTabState({ selectedId: "5s" });
@@ -68,12 +68,12 @@ function ProximitySensorDetailPage({ device, mqttClient, updateParentState }) {
       try {
         await mqttClient.addEventHandler(
           `ProximitySensor/${device.clientUsername}-${getMqttId({
-            clientName: device.clientName
+            clientName: device.clientName,
           })}/Chart/Data`,
           // define callback that is triggered when messages are received on specified topic
           function updateChartData({ topic, message }) {
             let payload = JSON.parse(message.toString());
-            updateState(draft => {
+            updateState((draft) => {
               draft.chartData.push(payload);
             });
           },
@@ -94,39 +94,53 @@ function ProximitySensorDetailPage({ device, mqttClient, updateParentState }) {
     // send command
     await mqttClient.send(
       `ProximitySensor/${device.clientUsername}-${getMqttId({
-        clientName: device.clientName
-      })}/Command/Start`,
+        clientName: device.clientName,
+      })}/Command/START`,
       {
         timestamp: Date.now(),
-        command: "START"
+        command: "START",
       },
       1 // qos
     );
     // log action
-    updateState(draft => {
+    updateState((draft) => {
       draft.actionLog.unshift({
         timestamp: new Date().toLocaleString(),
-        message: `start command issued to proximity sensor ${device.clientUsername}-${device.clientId}`
+        message: `start command issued to proximity sensor ${
+          device.clientUsername
+        }-${getMqttId({
+          clientName: device.clientName,
+        })}`,
       });
+
+      draft.isPaused = false;
     });
   }
 
   async function sendStopCommand() {
     // send command
     await mqttClient.send(
-      `ProximitySensor/${device.clientUsername}-${device.clientId}/Command/Stop`,
+      `ProximitySensor/${device.clientUsername}-${getMqttId({
+        clientName: device.clientName,
+      })}/Command/STOP`,
       {
         timestamp: Date.now(),
-        command: "STOP"
+        command: "STOP",
       },
       1 // qos
     );
     // log action
-    updateState(draft => {
+    updateState((draft) => {
       draft.actionLog.unshift({
         timestamp: new Date().toLocaleString(),
-        message: `stop command issued to proximity sensor ${device.clientUsername}-${device.clientId}`
+        message: `stop command issued to proximity sensor ${
+          device.clientUsername
+        }-${getMqttId({
+          clientName: device.clientName,
+        })}`,
       });
+
+      draft.isPaused = true;
     });
   }
 
@@ -139,7 +153,7 @@ function ProximitySensorDetailPage({ device, mqttClient, updateParentState }) {
         <button
           className="mr-4"
           onClick={() =>
-            updateParentState(draft => {
+            updateParentState((draft) => {
               draft.selectedDevice = null;
             })
           }
@@ -160,8 +174,8 @@ function ProximitySensorDetailPage({ device, mqttClient, updateParentState }) {
       <div className="grid grid-cols-10 p-6">
         <div className="flex flex-col col-start-1 col-end-7">
           {/* chart */}
-          <h2 className="text-2xl mb-2">Product counts</h2>
-          <div className="border rounded-md shadow-sm p-4">
+          <h2 className="mb-2 text-2xl">Product counts</h2>
+          <div className="p-4 border rounded-md shadow-sm">
             <TabList {...tab} aria-label="semp url forms" className="border-b">
               <Tab {...tab} stopId="5s" className="p-2">
                 <div className="flex flex-col">
@@ -252,12 +266,16 @@ function ProximitySensorDetailPage({ device, mqttClient, updateParentState }) {
           <div className="flex flex-col">
             <h2 className="text-2xl">Status</h2>
             <div
-              className={`p-4 border rounded-md shadow-sm text-2xl bg-green-200 text-green-700`}
+              className={`p-4 border rounded-md shadow-sm text-2xl ${
+                state.isPaused
+                  ? "bg-red-200 text-red-700"
+                  : "bg-green-200 text-green-700"
+              }`}
             >
-              Running
+              {state.isPaused ? "Stopped" : "Running"}
             </div>
-            <h2 className="text-2xl mt-4">Available actions</h2>
-            <div className="mt-2 flex items-center justify-center border rounded-md shadow-sm p-4">
+            <h2 className="mt-4 text-2xl">Available actions</h2>
+            <div className="flex items-center justify-center p-4 mt-2 border rounded-md shadow-sm">
               <button
                 class="w-32 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mr-2"
                 onClick={() => sendStartCommand()}
@@ -291,13 +309,13 @@ function TimeSeriesChart({ chartData }) {
           dataKey="time"
           domain={["auto", "auto"]}
           name="Time"
-          tickFormatter={unixTime => moment(unixTime).format("HH:mm:ss")}
+          tickFormatter={(unixTime) => moment(unixTime).format("HH:mm:ss")}
           type="number"
           label={{
             value: "timestamp",
             angle: 0,
             position: "insideBottomRight",
-            offset: -5
+            offset: -5,
           }}
         />
         <YAxis
@@ -307,7 +325,7 @@ function TimeSeriesChart({ chartData }) {
             value: "product count",
             angle: -90,
             position: "insideLeft",
-            textAnchor: "middle"
+            textAnchor: "middle",
           }}
         />
         <Tooltip />

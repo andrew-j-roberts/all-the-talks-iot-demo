@@ -82,7 +82,7 @@ export function createProximityReadingProcessor({
       objectDetectedCount,
       time: Date.now(),
     });
-    publish(`ProximitySensor/${id}/Chart/Data/`, chartDatumEvent);
+    publish(`ProximitySensor/${id}/Chart/Data`, chartDatumEvent);
   }
 
   /**
@@ -184,7 +184,7 @@ export function createProximityReadingProcessor({
         });
       }
       service.send("CHART_DATUM_SENT");
-    }, chartTimeIntervalSec * 1000);
+    }, chartTimeIntervalSec * 500);
 
     return () => clearInterval(interval);
   }

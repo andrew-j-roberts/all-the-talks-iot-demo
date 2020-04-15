@@ -25,7 +25,7 @@ async function run() {
     hostUrl: process.env.SOLACE_MQTT_HOST_URL,
     username: process.env.SOLACE_USERNAME,
     password: process.env.SOLACE_PASSWORD,
-    clientId: randomSensorId
+    clientId: randomSensorId,
   };
 
   // initialize and connect mqtt client
@@ -37,7 +37,32 @@ async function run() {
     console.error(err);
   }
 
-  // start publishing proximity reading events at rate specified in .env
+  // configure command and control
+  let isPaused = false;
+  try {
+    await mqttClient.addEventHandler(
+      `ProximitySensor/${process.env.SOLACE_USERNAME}-${randomSensorId}/Command/STOP`,
+      (event) => {
+        isPaused = true;
+      },
+      1
+    );
+  } catch (err) {
+    console.error(err);
+  }
+  try {
+    await mqttClient.addEventHandler(
+      `ProximitySensor/${process.env.SOLACE_USERNAME}-${randomSensorId}/Command/START`,
+      (event) => {
+        isPaused = false;
+      },
+      1
+    );
+  } catch (err) {
+    console.error(err);
+  }
+
+  // start publishing proximity reading events at rate specified in .env, unless a stop message is received
   let publishInterval = setInterval(() => {
     // form proximity reading event
     let randomCmReading = Math.floor(
@@ -46,19 +71,21 @@ async function run() {
     let proximityReadingEvent = Events.ProximityReadingEvent({
       id: `${process.env.SOLACE_USERNAME}-${randomSensorId}`,
       centimeters: randomCmReading,
-      inches: randomCmReading * 0.3937
+      inches: randomCmReading * 0.3937,
     });
     // publish proximity reading event on topic that includes the sensor id
-    mqttClient.send(
-      `ProximitySensor/${process.env.SOLACE_USERNAME}-${randomSensorId}/Reading`,
-      proximityReadingEvent
-    );
+    if (!isPaused) {
+      mqttClient.send(
+        `ProximitySensor/${process.env.SOLACE_USERNAME}-${randomSensorId}/Reading`,
+        proximityReadingEvent
+      );
+    }
   }, Math.floor((process.env.PROXIMITY_SENSOR_RATE_PER_SEC / 1000) * 1000));
 
   // run until sigint
   console.log("Running until a SIGINT signal is received...");
   process.stdin.resume();
-  process.on("SIGINT", function() {
+  process.on("SIGINT", function () {
     console.log("+-+-+-+-+-+-+-+-+-+-+-+-+-+");
     console.log("+-+-+-+-+-+-+-+-+-+-+-+-+-+");
     process.exit();
