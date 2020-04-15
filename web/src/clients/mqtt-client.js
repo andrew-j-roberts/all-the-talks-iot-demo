@@ -6,7 +6,7 @@
 import mqtt from "mqtt";
 import produce from "immer";
 
-export function MqttClient({ hostUrl, username, password }) {
+export function MqttClient({ hostUrl, username, password, clientId }) {
   let client = null;
   let eventHandlers = produce({}, draft => {});
 
@@ -17,7 +17,8 @@ export function MqttClient({ hostUrl, username, password }) {
     return new Promise((resolve, reject) => {
       client = mqtt.connect(hostUrl, {
         username: username,
-        password: password
+        password: password,
+        clientId: String(clientId)
       });
       client.on("message", (topic, message) => {
         //Iterate over all subscriptions in the subscription map
@@ -32,10 +33,9 @@ export function MqttClient({ hostUrl, username, password }) {
               .substring(0, regexdSub.length - 1)
               .concat(".*");
           }
-          console.log(matchRegex);
+
           let matchRegex = new RegExp(regexdSub);
           let matched = topic.match(matchRegex);
-          console.log(matched);
 
           //if the matched index starts at 0, then the topic is a match with the topic filter
           if (matched && matched.index == 0) {

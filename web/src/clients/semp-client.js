@@ -1,13 +1,13 @@
 /**
- * SempClient
+ * semp-client
  * @author Andrew Roberts
  */
 
 import { clientConfig } from "./clients.config";
 import { makeRequest } from "./http-client";
 
-export async function fetchConnectedClients({ msgVpnName }) {
-  const baseUrl = `${clientConfig.SEMP_ENDPOINT}/msgVpns/${msgVpnName}`;
+export async function fetchConnectedClients({ brokerIp, port, messageVpn }) {
+  let baseUrl = `http://${brokerIp}:${port}/SEMP/v2/monitor/msgVpns/${messageVpn}`;
 
   const getRequestParams = {
     baseUrl: baseUrl,
@@ -17,7 +17,7 @@ export async function fetchConnectedClients({ msgVpnName }) {
     method: "GET"
   };
   try {
-    console.log(`Fetching client connections in Msg VPN "${msgVpnName}"...`);
+    console.log(`Fetching client connections in Msg VPN "${messageVpn}"...`);
     let res = await makeRequest(getRequestParams);
     console.dir(res["data"]);
     return res["data"];
@@ -28,6 +28,9 @@ export async function fetchConnectedClients({ msgVpnName }) {
 }
 
 export async function provisionQueue({
+  brokerIp,
+  port,
+  messageVpn,
   queueName,
   sempUsername,
   sempPassword

@@ -6,7 +6,7 @@ import AutoSizer from "react-virtualized-auto-sizer";
 // clients
 import { clientConfig } from "./clients/clients.config";
 import { MqttClient } from "./clients/mqtt-client";
-import { fetchConnectedClients } from "./clients/semp-client";
+import * as SempClient from "./clients/semp-client";
 // pages
 import { DeviceDetailPage } from "./pages/DeviceDetailPage";
 // img
@@ -26,6 +26,7 @@ function App() {
    * app state
    */
   const [state, updateState] = useImmer({
+    id: 0,
     selectedDevice: null,
     connectedDeviceList: []
   });
@@ -54,15 +55,21 @@ function App() {
   useEffect(() => {
     async function setupApp() {
       /**
+       * set unique id for web session, for this example a random number from 1-10,000
+       */
+      let randomId = Math.floor(Math.random() * 10000);
+
+      /**
        * fetch a snapshot of currently connected clients using SEMP v2 (Solace's management API)
        */
       let clientArray;
       let filteredDevices;
       try {
-        let res = await fetchConnectedClients({
-          msgVpnName: clientConfig.SEMP_MESSAGE_VPN
+        let res = await SempClient.fetchConnectedClients({
+          brokerIp: clientConfig.SEMP_BROKER_IP,
+          port: clientConfig.SEMP_PORT,
+          messageVpn: clientConfig.SEMP_MESSAGE_VPN
         });
-        console.dir(res);
         clientArray = res["data"];
         filteredDevices = filterConnectedClients(clientArray);
       } catch (e) {
@@ -82,7 +89,8 @@ function App() {
       let mqttClientConfig = {
         hostUrl: clientConfig.MQTT_HOST_URL,
         username: clientConfig.MQTT_USERNAME,
-        password: clientConfig.MQTT_PASSWORD
+        password: clientConfig.MQTT_PASSWORD,
+        clientId: randomId
       };
 
       // initialize and connect mqtt client
@@ -106,8 +114,10 @@ function App() {
    * poll for currently connected clients using SEMP v2 (Solace's management API)
    */
   useInterval(async () => {
-    let res = await fetchConnectedClients({
-      msgVpnName: clientConfig.SEMP_MESSAGE_VPN
+    let res = await SempClient.fetchConnectedClients({
+      brokerIp: clientConfig.SEMP_BROKER_IP,
+      port: clientConfig.SEMP_PORT,
+      messageVpn: clientConfig.SEMP_MESSAGE_VPN
     });
 
     let clientArray;

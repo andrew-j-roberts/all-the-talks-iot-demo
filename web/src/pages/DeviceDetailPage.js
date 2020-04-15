@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
-import PropTypes from "prop-types";
-import { env } from "../clients/clients.config";
+import React, { useEffect } from "react";
 import moment from "moment";
 import { useImmer } from "use-immer";
+import * as SempClient from "../clients/semp-client";
 import { useTabState, Tab, TabList, TabPanel } from "reakit/Tab";
 import {
   CartesianGrid,
@@ -16,7 +15,7 @@ import {
 } from "recharts";
 import { FixedSizeList as List } from "react-window";
 import AutoSizer from "react-virtualized-auto-sizer";
-import { MdArrowBack, MdChevronRight } from "react-icons/md";
+import { MdArrowBack } from "react-icons/md";
 import PngProximitySensor from "../../img/proximity-sensor.png";
 import SvgNodejs from "../../img/SvgNodeJs";
 
@@ -59,21 +58,22 @@ function ProximitySensorDetailPage({ device, mqttClient, updateParentState }) {
 
   const tab = useTabState({ selectedId: "5s" });
 
+  console.log(state.chartData);
   /**
    * app lifecycle, runs once on mount
    */
   useEffect(() => {
     async function setupPage() {
-      // fetch snapshot of relevant chart data using replay
-
       // add topic subscriptions and event handlers for data required by page
       try {
         await mqttClient.addEventHandler(
-          `ProximitySensor/${device.clientUsername}-${device.clientId}/Chart/Data`,
+          `ProximitySensor/${device.clientUsername}-${getMqttId({
+            clientName: device.clientName
+          })}/Chart/Data`,
           // define callback that is triggered when messages are received on specified topic
           function updateChartData({ topic, message }) {
             let payload = JSON.parse(message.toString());
-            updateState(state, draft => {
+            updateState(draft => {
               draft.chartData.push(payload);
             });
           },
@@ -93,7 +93,9 @@ function ProximitySensorDetailPage({ device, mqttClient, updateParentState }) {
   async function sendStartCommand() {
     // send command
     await mqttClient.send(
-      `ProximitySensor/${device.clientUsername}-${device.clientId}/Command/Start`,
+      `ProximitySensor/${device.clientUsername}-${getMqttId({
+        clientName: device.clientName
+      })}/Command/Start`,
       {
         timestamp: Date.now(),
         command: "START"
@@ -207,16 +209,16 @@ function ProximitySensorDetailPage({ device, mqttClient, updateParentState }) {
               </Tab>
             </TabList>
             <TabPanel {...tab} stopId="5s" className="mt-2">
-              <TimeSeriesChart chartData={[{ time: 123, count: 10 }]} />
+              <TimeSeriesChart chartData={state.chartData} />
             </TabPanel>
             <TabPanel {...tab} stopId="30s" className="mt-2">
-              <TimeSeriesChart chartData={[{ time: 123, count: 10 }]} />
+              <TimeSeriesChart chartData={state.chartData} />
             </TabPanel>
             <TabPanel {...tab} stopId="1m" className="mt-2">
-              <TimeSeriesChart chartData={[{ time: 123, count: 10 }]} />
+              <TimeSeriesChart chartData={state.chartData} />
             </TabPanel>
             <TabPanel {...tab} stopId="5m" className="mt-2">
-              <TimeSeriesChart chartData={[{ time: 123, count: 10 }]} />
+              <TimeSeriesChart chartData={state.chartData} />
             </TabPanel>
           </div>
 
@@ -284,21 +286,38 @@ function TimeSeriesChart({ chartData }) {
   return (
     <ResponsiveContainer width="95%" height={300}>
       <ScatterChart>
-        <CartesianGrid stroke="#ccc" />
+        <CartesianGrid strokeDasharray="3 3" />
         <XAxis
           dataKey="time"
           domain={["auto", "auto"]}
           name="Time"
           tickFormatter={unixTime => moment(unixTime).format("HH:mm:ss")}
           type="number"
+          label={{
+            value: "timestamp",
+            angle: 0,
+            position: "insideBottomRight",
+            offset: -5
+          }}
         />
-        <YAxis dataKey="count" name="Product Count" />
+        <YAxis
+          dataKey="objectDetectedCount"
+          name="product count"
+          label={{
+            value: "product count",
+            angle: -90,
+            position: "insideLeft",
+            textAnchor: "middle"
+          }}
+        />
+        <Tooltip />
+        <Legend />
         <Scatter
           data={chartData}
-          line={{ stroke: "#eee" }}
-          lineJointType="monotoneX"
+          name="product count"
+          line={{ stroke: "#0000ff" }}
           lineType="joint"
-          name="Product Counts"
+          fill="#0000ff"
         />
       </ScatterChart>
     </ResponsiveContainer>

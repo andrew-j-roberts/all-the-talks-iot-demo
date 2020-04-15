@@ -11,7 +11,7 @@ export function createProximityReadingProcessor({
   publish,
   proximitySensorMaxRangeCm,
   proximitySensorThreshold,
-  chartTimeIntervalSec
+  chartTimeIntervalSec,
 }) {
   /**
    * guards
@@ -45,48 +45,49 @@ export function createProximityReadingProcessor({
 
   const incrementObjectDetectedCount = assign((context, event) => {
     // if the sensor has an active count, increment
-    if (context.objectDetectedCount[event.sensorId]) {
+    if (context.objectDetectedCount[event.id]) {
       return {
         objectDetectedCount: {
-          ...produce(context.objectDetectedCount, draft => {
-            draft[event.sensorId] = draft[event.sensorId] + 1;
-          })
-        }
+          ...produce(context.objectDetectedCount, (draft) => {
+            draft[event.id] = draft[event.id] + 1;
+          }),
+        },
       };
     }
     // else initialize the sensor's count to 1
     return {
       objectDetectedCount: {
-        ...produce(context.objectDetectedCount, draft => {
-          draft[event.sensorId] = 1;
-        })
-      }
+        ...produce(context.objectDetectedCount, (draft) => {
+          draft[event.id] = 1;
+        }),
+      },
     };
   });
 
   const resetObjectDetectedCount = assign((context, event) => {
     return {
       objectDetectedCount: {
-        ...produce(context.objectDetectedCount, draft => {
+        ...produce(context.objectDetectedCount, (draft) => {
           for (let key of Object.keys(draft)) {
             draft[key] = 0;
           }
-        })
-      }
+        }),
+      },
     };
   });
 
-  function publishChartDatum({ objectDetectedCount, sensorId }) {
+  function publishChartDatum({ objectDetectedCount, id }) {
     let chartDatumEvent = Events.ChartDatumEvent({
-      sensorId,
+      id,
       objectDetectedCount,
-      timestamp: Date.now()
+      time: Date.now(),
     });
-    publish(`ProximitySensor/${sensorId}/Chart/Data`, chartDatumEvent);
+    publish(`ProximitySensor/${id}/Chart/Data/`, chartDatumEvent);
   }
 
   /**
    * state machine
+   * https://xstate.js.org/viz/?gist=d2b2941cfee3c6fa25f04187310ebc85
    */
 
   const proximityReadingProcessorMachine = Machine(
@@ -94,13 +95,13 @@ export function createProximityReadingProcessor({
       id: "proximityReadingProcessorMachine",
       initial: "idle",
       context: {
-        objectDetectedCount: {}
+        objectDetectedCount: {},
       },
       states: {
         idle: {
           on: {
-            CONNECT: "listening"
-          }
+            CONNECT: "listening",
+          },
         },
         listening: {
           initial: "baseline",
@@ -110,45 +111,45 @@ export function createProximityReadingProcessor({
               on: {
                 PROXIMITY_READING_RECEIVED: {
                   cond: "objectDetected",
-                  target: "triggered"
-                }
-              }
+                  target: "triggered",
+                },
+              },
             },
             triggered: {
               entry: "incrementObjectDetectedCount",
               on: {
                 PROXIMITY_READING_RECEIVED: {
                   cond: "objectCleared",
-                  target: "baseline"
-                }
-              }
-            }
+                  target: "baseline",
+                },
+              },
+            },
           },
           on: {
             DISCONNECT: {
               actions: "resetObjectDetectedCount",
-              target: "idle"
+              target: "idle",
             },
             CHART_DATUM_SENT: {
-              actions: "resetObjectDetectedCount"
-            }
-          }
-        }
-      }
+              actions: "resetObjectDetectedCount",
+            },
+          },
+        },
+      },
     },
     {
       guards: {
         objectDetected,
-        objectCleared
+        objectCleared,
       },
       actions: {
         incrementObjectDetectedCount,
         resetObjectDetectedCount,
-        publishChartDatum
+        publishChartDatum,
       },
       activities: {
-        createProcessingActivity
-      }
+        createProcessingActivity,
+      },
     }
   );
 
@@ -157,7 +158,7 @@ export function createProximityReadingProcessor({
    */
 
   const service = interpret(proximityReadingProcessorMachine).onTransition(
-    state => {
+    (state) => {
       console.log(
         "Service: { state: ",
         state.value,
@@ -178,8 +179,8 @@ export function createProximityReadingProcessor({
       let currentContext = service.state.context;
       for (let key of Object.keys(currentContext.objectDetectedCount)) {
         publishChartDatum({
-          sensorId: key,
-          objectDetectedCount: currentContext.objectDetectedCount[key]
+          id: key,
+          objectDetectedCount: currentContext.objectDetectedCount[key],
         });
       }
       service.send("CHART_DATUM_SENT");

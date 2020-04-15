@@ -1,5 +1,5 @@
 /**
- * index.js
+ * proximity-reading-processor/index.js
  * @author Andrew Roberts
  */
 
@@ -22,7 +22,7 @@ async function run() {
   let mqttClientConfig = {
     hostUrl: process.env.SOLACE_MQTT_HOST_URL,
     username: process.env.SOLACE_USERNAME,
-    password: process.env.SOLACE_PASSWORD
+    password: process.env.SOLACE_PASSWORD,
   };
 
   // initialize and connect mqtt client
@@ -39,7 +39,7 @@ async function run() {
     publish: mqttClient.send,
     proximitySensorMaxRangeCm: process.env.PROXIMITY_SENSOR_MAX_RANGE_CM,
     proximitySensorThreshold: process.env.PROXIMITY_SENSOR_THRESHOLD,
-    chartTimeIntervalSec: process.env.DASHBOARD_CHART_TIME_INTERVAL_SEC
+    chartTimeIntervalSec: process.env.DASHBOARD_CHART_TIME_INTERVAL_SEC,
   });
   proximitySensorReadingProcessor.send("CONNECT");
 
@@ -53,7 +53,7 @@ async function run() {
   try {
     await mqttClient.addEventHandler(
       `ProximitySensor/+/Reading`,
-      event => proximityReadingEventHandler(event),
+      (event) => proximityReadingEventHandler(event),
       0 // qos
     );
   } catch (err) {
@@ -63,7 +63,7 @@ async function run() {
   // run until sigint
   console.log("Running until a SIGINT signal is received...");
   process.stdin.resume();
-  process.on("SIGINT", function() {
+  process.on("SIGINT", function () {
     console.log("+-+-+-+-+-+-+-+-+-+-+-+-+-+");
     console.log("+-+-+-+-+-+-+-+-+-+-+-+-+-+");
     process.exit();

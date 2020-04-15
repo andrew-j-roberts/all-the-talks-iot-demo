@@ -6,22 +6,22 @@
 import mqtt from "mqtt";
 import produce from "immer";
 
-export function MqttClient({ hostUrl, username, clientId, password }) {
+function MqttClient({ hostUrl, username, password, clientId = username }) {
   let client = null;
 
-  // connect client to message broker,
-  // configure client to dispatch events using the event handlers map,
-  // and ensure a connack is received
+  // connects client to message broker and ensures connack is received
   async function connect() {
     return new Promise((resolve, reject) => {
       client = mqtt.connect(hostUrl, {
         username: username,
         password: password,
-        clientId: String(clientId)
+        clientId: clientId
       });
-      client.on("connect", function onConnAck() {
-        console.log("MqttClient connected to broker.");
-        resolve(client);
+      client.on("connect", function onConnAck(connAck) {
+        resolve();
+      });
+      client.on("error", function onConnError(error) {
+        reject(error);
       });
     });
   }
@@ -36,7 +36,7 @@ export function MqttClient({ hostUrl, username, clientId, password }) {
 
       client.publish(
         topic,
-        JSON.stringify(message),
+        message,
         { qos }, // options
         function onPubAck(err) {
           // guard: err != null indicates client is disconnecting
@@ -52,3 +52,5 @@ export function MqttClient({ hostUrl, username, clientId, password }) {
     draft.send = send;
   });
 }
+
+export default MqttClient;

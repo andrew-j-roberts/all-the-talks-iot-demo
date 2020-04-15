@@ -18,6 +18,7 @@ import * as Events from "./events";
 
 async function run() {
   let randomSensorId = Math.floor(Math.random() * 10000);
+  console.log(`id: ${randomSensorId}`);
 
   // configure mqtt connection options
   let mqttClientConfig = {
@@ -49,7 +50,7 @@ async function run() {
     });
     // publish proximity reading event on topic that includes the sensor id
     mqttClient.send(
-      `ProximitySensor/${process.env.SOLACE_USERNAME}-${randomSensorId}/Chart/Data`,
+      `ProximitySensor/${process.env.SOLACE_USERNAME}-${randomSensorId}/Reading`,
       proximityReadingEvent
     );
   }, Math.floor((process.env.PROXIMITY_SENSOR_RATE_PER_SEC / 1000) * 1000));

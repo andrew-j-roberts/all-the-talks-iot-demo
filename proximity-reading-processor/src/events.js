@@ -12,11 +12,11 @@ export function ProximityReadingEvent({ id, centimeters, inches }) {
   });
 }
 
-export function ChartDatumEvent({ id, objectDetectedCount, timestamp }) {
+export function ChartDatumEvent({ id, objectDetectedCount, time }) {
   return produce({}, draft => {
     draft.id = id;
     draft.objectDetectedCount = objectDetectedCount;
-    draft.timestamp = timestamp;
+    draft.time = time;
   });
 }
 

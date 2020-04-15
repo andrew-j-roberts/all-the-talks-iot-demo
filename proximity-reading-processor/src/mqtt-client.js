@@ -8,7 +8,7 @@ import produce from "immer";
 
 export function MqttClient({ hostUrl, username, password }) {
   let client = null;
-  let eventHandlers = produce({}, draft => {});
+  let eventHandlers = produce({}, (draft) => {});
 
   // connect client to message broker,
   // configure client to dispatch events using the event handlers map,
@@ -17,7 +17,7 @@ export function MqttClient({ hostUrl, username, password }) {
     return new Promise((resolve, reject) => {
       client = mqtt.connect(hostUrl, {
         username: username,
-        password: password
+        password: password,
       });
       client.on("message", (topic, message) => {
         //Iterate over all subscriptions in the subscription map
@@ -96,7 +96,7 @@ export function MqttClient({ hostUrl, username, password }) {
       }
 
       // add event handler
-      eventHandlers = produce(eventHandlers, draft => {
+      eventHandlers = produce(eventHandlers, (draft) => {
         draft[topic] = handler;
       });
 
@@ -126,7 +126,7 @@ export function MqttClient({ hostUrl, username, password }) {
       }
 
       // remove event handler
-      eventHandlers = produce(eventHandlers, draft => {
+      eventHandlers = produce(eventHandlers, (draft) => {
         delete draft[topic];
       });
       // unsubscribe from topic on client
@@ -139,7 +139,7 @@ export function MqttClient({ hostUrl, username, password }) {
     });
   }
 
-  return produce({}, draft => {
+  return produce({}, (draft) => {
     draft.connect = connect;
     draft.send = send;
     draft.addEventHandler = addEventHandler;
